@@ -12,53 +12,61 @@ import { KnownExceptions } from '@core/exceptions/known-exceptions';
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
-  async validateUser(email: string, password: string) {
-    const user = await this.userRepository.findByEmail(email);
+  async validateUser(identifier: string, password: string): Promise<User> {
+    const user = identifier.includes('@')
+      ? await this.userRepository.findByEmail(identifier)
+      : await this.userRepository.findByUsername(identifier);
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw KnownExceptions.invalidCredentials();
     }
-
     return user;
   }
 
   async login(user: User) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...rest } = user;
-
-    return {
-      access_token: this.jwtService.sign({ ...rest }),
-    };
+    const { password, ...payload } = user;
+    return { access_token: this.jwt.sign(payload) };
   }
 
-  async signup({ email, password }: SignUpDto) {
-    const existing = await this.userRepository.findByEmail(email);
+  async signup(dto: SignUpDto) {
+    const { username, email, password } = dto;
 
-    if (existing) {
+    if (await this.userRepository.findByUsername(username)) {
+      throw new ConflictException('Username already in use');
+    }
+    if (email && (await this.userRepository.findByEmail(email))) {
       throw new ConflictException('Email already in use');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const saltRounds = Number(this.config.get('BCRYPT_SALT')) || 10;
+    const hash = await bcrypt.hash(password, saltRounds);
+
     return this.userRepository.create({
-      email,
-      password: hashedPassword,
+      username,
+      email: email || null,
+      password: hash,
     });
   }
 
-  async newPassword(newPasswordDto: NewPasswordDto): Promise<void> {
-    const payload = await this.jwtService.verify(newPasswordDto.token);
-    const user = await this.userRepository.findById(payload.id);
-
-    if (!user) {
-      throw KnownExceptions.notFoundUser();
+  async setEmail(userId: string, email: string): Promise<User> {
+    if (await this.userRepository.findByEmail(email)) {
+      throw new ConflictException('Email already in use');
     }
+    return this.userRepository.update(userId, { email });
+  }
 
-    const hashedPassword = await bcrypt.hash(newPasswordDto.password, 10);
+  async newPassword(dto: NewPasswordDto): Promise<void> {
+    const payload = this.jwt.verify<{ id: string }>(dto.token);
+    const user = await this.userRepository.findById(payload.id);
+    if (!user) throw KnownExceptions.notFoundUser();
 
-    await this.userRepository.updatePassword(user.id, hashedPassword);
+    const saltRounds = Number(this.config.get('BCRYPT_SALT')) || 10;
+    const hash = await bcrypt.hash(dto.password, saltRounds);
+    await this.userRepository.updatePassword(user.id, hash);
   }
 }

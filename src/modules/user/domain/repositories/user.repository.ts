@@ -24,6 +24,12 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
+  async findByUsername(username: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { username },
+    });
+  }
+
   async create(user: CreateUserDto) {
     const createdUser = await this.prisma.user.create({
       data: {
@@ -32,6 +38,13 @@ export class UserRepository implements IUserRepository {
     });
 
     return createdUser;
+  }
+
+  async update(id: string, data: Partial<User>) {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+    });
   }
 
   async updatePassword(id: string, password: string): Promise<User> {

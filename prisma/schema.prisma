@@ -14,10 +14,115 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id           String    @id @default(cuid())
+  email        String?   @unique
+  username     String    @unique
+  password     String
+  companiesLed Company[] @relation("PlayerCompanyLeader")
 
-  password  String
+  name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  nickname  String   @unique
+  server    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  classes   String[] @default([])
+
+  performances  PlayerPerformance[]
+  PlayerProfile PlayerProfile?
+
+  @@unique([nickname, server])
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  leader    User     @relation("PlayerCompanyLeader", fields: [leaderId], references: [id])
+  leaderId  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  faction   Faction?
+
+  warsAsAttacker War[] @relation("AttackerWars")
+  warsAsDefender War[] @relation("DefenderWars")
+
+  WarSide       WarSide[]
+  PlayerProfile PlayerProfile[]
+}
+
+model PlayerProfile {
+  id        String   @id @default(cuid())
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String   @unique
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([playerId])
+}
+
+model War {
+  id         String       @id @default(cuid())
+  territory  String
+  startTime  DateTime
+  attacker   Company      @relation("AttackerWars", fields: [attackerId], references: [id])
+  attackerId String
+  defender   Company      @relation("DefenderWars", fields: [defenderId], references: [id])
+  defenderId String
+  winner     WarSideType? // null if draw/unknown
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  sides WarSide[]
+}
+
+model WarSide {
+  id           String              @id @default(cuid())
+  war          War                 @relation(fields: [warId], references: [id])
+  warId        String
+  type         WarSideType
+  company      Company             @relation(fields: [companyId], references: [id])
+  companyId    String
+  faction      Faction?
+  performances PlayerPerformance[]
+
+  @@unique([warId, type])
+}
+
+model PlayerPerformance {
+  id          String   @id @default(cuid())
+  warSide     WarSide  @relation(fields: [warSideId], references: [id])
+  warSideId   String
+  player      Player?  @relation(fields: [playerId], references: [id])
+  playerId    String?
+  win         Boolean?
+  playerClass String?
+  score       Float?
+  kills       Int
+  deaths      Int
+  assists     Int
+  healing     BigInt
+  damage      BigInt
+  createdAt   DateTime @default(now())
+
+  @@index([playerId])
+}
+
+enum Faction {
+  Marauders
+  Syndicate
+  Covenant
+}
+
+enum WarSideType {
+  Attacker
+  Defender
 }
