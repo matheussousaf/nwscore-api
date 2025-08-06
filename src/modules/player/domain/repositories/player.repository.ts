@@ -103,94 +103,128 @@ export class PlayerRepository implements IPlayerRepository {
     return players;
   }
 
-  async findTrendingPlayers(limit: number = 4) {
-    const trending = await this.prisma.playerProfile.findMany({
-      orderBy: { views: 'desc' },
-      take: limit,
-      select: {
-        player: {
-          select: {
-            id: true,
-            nickname: true,
-          },
-        },
-        views: true,
-        likes: true,
-      },
-    });
-
-    const ids = trending.map((trending) => trending.player.id);
-
-    const ranks = await this.prisma.$queryRaw<
-      { playerId: string; playerClass: string; rank: number }[]
+  async findBestPerformances(date: Date, limit = 4) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        nickname: string;
+        playerId: string;
+        playerClass: string;
+        score: number;
+        rank: number;
+      }[]
     >`
-  WITH avg_scores AS (
-    SELECT "playerId","playerClass",AVG(score) AS avg_score
-    FROM "PlayerPerformance"
-    GROUP BY "playerId","playerClass"
-  )
-  SELECT
-    "playerId",
-    "playerClass",
-    RANK() OVER (
-      PARTITION BY "playerClass"
-      ORDER BY avg_score DESC
-    ) AS rank
-  FROM avg_scores
-  WHERE "playerId" = ANY(${ids})
-`;
+    SELECT
+      p.nickname                           AS nickname,
+      pp."playerId"                        AS "playerId",
+      pp."playerClass"                     AS "playerClass",
+      pp.score                             AS score,
+      pcs.rank                             AS rank
+    FROM "PlayerPerformance" pp
+    JOIN "Player" p
+      ON p.id = pp."playerId"
+    JOIN "PlayerClassStats" pcs
+      ON pcs."playerId"    = pp."playerId"
+     AND pcs."playerClass" = pp."playerClass"
+    WHERE pp."createdAt" >= ${date}
+    ORDER BY pp.score DESC
+    LIMIT ${limit};
+  `;
 
-    return trending.map((tredingPlayer) => ({
-      ...tredingPlayer,
-      playerClass: ranks.find((r) => r.playerId === tredingPlayer.player.id)!
-        .playerClass,
-      rank: Number(
-        ranks.find((r) => r.playerId === tredingPlayer.player.id)!.rank,
-      ),
+    return rows.map((r) => ({
+      nickname: r.nickname,
+      playerId: r.playerId,
+      playerClass: r.playerClass,
+      score: r.score,
+      rank: r.rank,
     }));
   }
 
-  async findBestPerformances(date: Date, limit: number = 4) {
-    // 1. pull top scores since “date”
-    const best = await this.prisma.playerPerformance.findMany({
-      where: {
-        warSide: { war: { startTime: { gte: date } } },
-      },
-      orderBy: { score: 'desc' },
-      take: limit,
-      include: {
-        player: { select: { nickname: true, server: true } },
-        warSide: {
-          select: {
-            type: true,
-            company: { select: { name: true, faction: true } },
-            war: { select: { territory: true, startTime: true } },
-          },
-        },
-      },
-    });
-
-    // 2. compute per‐class rank for those records
-    const ids = best.map((p) => p.id);
-    const ranks = await this.prisma.$queryRaw<{ id: string; rank: number }[]>`
-    WITH ranked AS (
-      SELECT
-        id,
-        RANK() OVER (PARTITION BY "playerClass" ORDER BY score DESC) AS rank
-      FROM "PlayerPerformance"
-      WHERE "createdAt" >= ${date}
-    )
-    SELECT id, rank
-      FROM ranked
-     WHERE id = ANY(${ids})
+  async findTrendingPlayers(limit = 4) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        playerId: string;
+        nickname: string;
+        views: number;
+        likes: number;
+        playerClass: string;
+        rank: number;
+      }[]
+    >`
+    SELECT
+      pp."playerId"    AS "playerId",
+      p.nickname       AS nickname,
+      pp.views         AS views,
+      pp.likes         AS likes,
+      vcs."playerClass" AS "playerClass",
+      vcs.rank         AS rank
+    FROM "PlayerProfile" pp
+    JOIN "Player" p
+      ON p.id = pp."playerId"
+    JOIN "PlayerClassStats" vcs
+      ON vcs."playerId"   = pp."playerId"
+     AND vcs."playerClass" = pp."playerClass"
+    ORDER BY pp.views DESC
+    LIMIT ${limit};
   `;
 
-    // 3. merge rank into the result
-    return best.map((performance) => ({
-      nickname: performance.player.nickname,
-      playerClass: performance.playerClass,
-      score: performance.score,
-      rank: Number(ranks.find((r) => r.id === performance.id)!.rank),
+    return rows.map((r) => ({
+      player: { id: r.playerId, nickname: r.nickname },
+      views: r.views,
+      likes: r.likes,
+      playerClass: r.playerClass,
+      rank: r.rank,
     }));
+  }
+
+  async getClassStats(playerId: string, playerClass: string) {
+    return this.prisma.playerClassStats.findUnique({
+      where: {
+        playerId_playerClass: { playerId, playerClass },
+      },
+    });
+  }
+
+  async getBestPerformers(
+    limit = 4,
+    minGames = 1,
+  ): Promise<
+    {
+      nickname: string;
+      playerClass: string;
+      averageScore: number;
+      rank: number;
+    }[]
+  > {
+    const rows = await this.prisma.$queryRaw<
+      {
+        nickname: string;
+        playerClass: string;
+        averageScore: number;
+        rank: number;
+      }[]
+    >`
+    SELECT
+      p.nickname                        AS nickname,
+      pcs."playerClass"                 AS "playerClass",
+      pcs."avgScore"                    AS "averageScore",
+      pcs.rank                          AS rank
+    FROM "PlayerClassStats" pcs
+    JOIN "Player" p
+      ON p.id = pcs."playerId"
+    JOIN (
+      SELECT
+        "playerId",
+        "playerClass",
+        COUNT(*) AS "gamesCount"
+      FROM "PlayerPerformance"
+      GROUP BY "playerId","playerClass"
+    ) pcg
+      ON pcg."playerId"    = pcs."playerId"
+     AND pcg."playerClass" = pcs."playerClass"
+    WHERE pcg."gamesCount" >= ${minGames}
+    ORDER BY pcs."avgScore" DESC
+    LIMIT ${limit};
+  `;
+    return rows;
   }
 }

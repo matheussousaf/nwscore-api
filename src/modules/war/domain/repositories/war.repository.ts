@@ -66,28 +66,87 @@ export class WarRepository implements IWarRepository {
   }
 
   async attachSideToWar(warData: UploadWarDto, existingWar: War) {
-    const playerPerformances = await this.resolvePerformances(warData);
+    const performances = await this.resolvePerformances(warData);
 
-    return await this.prisma.war.update({
-      where: { id: existingWar.id },
-      data: {
-        sides: {
-          create: {
-            type: warData.warType,
-            companyId: warData.companyId,
-            performances: {
-              createMany: {
-                data: playerPerformances,
-                skipDuplicates: true,
-              },
-            },
-          },
+    return this.prisma.$transaction(async (tx) => {
+      const side = await tx.warSide.create({
+        data: {
+          warId: existingWar.id,
+          type: warData.warType,
+          companyId: warData.companyId,
         },
-      },
+      });
+
+      // PS.: create performances at top level so extensions fire
+      await tx.playerPerformance.createMany({
+        data: performances.map((p) => ({
+          ...p,
+          warSideId: side.id,
+        })),
+        skipDuplicates: true,
+      });
+
+      return tx.war.findUnique({
+        where: { id: existingWar.id },
+      });
     });
   }
 
-  async findRecentWars(date: Date, limit: number = 10): Promise<War[]> {
+  async findWarById(id: string): Promise<War | null> {
+    return await this.prisma.war.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * Roll back a war and all its dependent records.
+   * Deletes:
+   *  - any dynamically created PlayerProfile and Player for this war
+   *  - all PlayerPerformance for both sides
+   *  - both WarSide records
+   *  - the War itself
+   */
+  async rollbackWar(warId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Gather any playerIds from this war
+      const performances = await tx.playerPerformance.findMany({
+        where: { warSide: { warId } },
+        select: { playerId: true },
+      });
+      const playerIds = performances
+        .map((p) => p.playerId)
+        .filter((id): id is string => !!id);
+
+      // 2. Remove their profiles and the players themselves if they exist
+      if (playerIds.length) {
+        await tx.playerProfile.deleteMany({
+          where: { playerId: { in: playerIds } },
+        });
+        await tx.player.deleteMany({
+          where: { id: { in: playerIds } },
+        });
+      }
+
+      // 3. Delete all performances for this war
+      await tx.playerPerformance.deleteMany({
+        where: { warSide: { warId } },
+      });
+
+      // 4. Delete both war‐sides
+      await tx.warSide.deleteMany({ where: { warId } });
+
+      // 5. Delete the war record
+      await tx.war.delete({ where: { id: warId } });
+    });
+  }
+
+  async deleteWar(id: string): Promise<void> {
+    await this.prisma.war.delete({
+      where: { id },
+    });
+  }
+
+  async findRecentWars(date: Date, limit: number = 10) {
     return await this.prisma.war.findMany({
       where: { startTime: { gte: date } },
       orderBy: { startTime: 'desc' },
@@ -104,32 +163,43 @@ export class WarRepository implements IWarRepository {
       throw new Error('Attacker and defender cannot be the same company');
     }
 
-    const playerPerformances = await this.resolvePerformances(warData);
-
+    const performances = await this.resolvePerformances(warData);
     const isAttacker = warData.warType === WarSideType.Attacker;
     const attackerId = isAttacker ? warData.companyId : warData.opponentId;
     const defenderId = isAttacker ? warData.opponentId : warData.companyId;
+    const winnerType = warData.isWinner
+      ? WarSideType.Attacker
+      : WarSideType.Defender;
 
-    return await this.prisma.war.create({
-      data: {
-        territory: warData.territory,
-        startTime: warData.startTime,
-        attackerId,
-        defenderId,
-        winner: warData.isWinner ? WarSideType.Attacker : WarSideType.Defender,
-        sides: {
-          create: {
-            type: warData.warType,
-            companyId: warData.companyId,
-            performances: {
-              createMany: {
-                data: playerPerformances,
-                skipDuplicates: true,
-              },
-            },
-          },
+    return this.prisma.$transaction(async (tx) => {
+      const war = await tx.war.create({
+        data: {
+          territory: warData.territory,
+          startTime: warData.startTime,
+          attackerId,
+          defenderId,
+          winner: winnerType,
         },
-      },
+      });
+
+      const side = await tx.warSide.create({
+        data: {
+          warId: war.id,
+          type: warData.warType,
+          companyId: warData.companyId,
+        },
+      });
+
+      // PS.: create performances at top level so extensions fire
+      await tx.playerPerformance.createMany({
+        data: performances.map((p) => ({
+          ...p,
+          warSideId: side.id,
+        })),
+        skipDuplicates: true,
+      });
+
+      return tx.war.findUnique({ where: { id: war.id } });
     });
   }
 }

@@ -39,6 +39,7 @@ export class CompanyRepository implements ICompanyRepository {
     return {
       name: company.name,
       leaderId: user.id,
+      companyId: company.id,
       leaderUsername: user.username,
       faction: company.faction,
     };

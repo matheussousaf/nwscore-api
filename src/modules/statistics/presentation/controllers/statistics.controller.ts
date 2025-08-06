@@ -5,23 +5,13 @@ import { Controller, Get } from '@nestjs/common';
 export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 
-  @Get('recent-wars')
-  recentWars() {
-    return this.statisticsService.recentWars();
-  }
-
-  @Get('trending-players')
-  trendingPlayers() {
-    return this.statisticsService.trendingPlayers();
-  }
-
-  @Get('best-performances')
-  bestPerformances() {
-    return this.statisticsService.bestPerformances();
-  }
-
-  @Get('top-players')
-  topPlayers() {
-    return this.statisticsService.topPlayers();
+  @Get('home')
+  async getHomeStatistics() {
+    return {
+      recentWars: await this.statisticsService.getRecentWars(),
+      trendingPlayers: await this.statisticsService.getTrendingPlayers(),
+      bestPerformances: await this.statisticsService.getBestPerformances(),
+      topPerformers: await this.statisticsService.getTopPerformers(),
+    };
   }
 }

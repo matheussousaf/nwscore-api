@@ -53,6 +53,13 @@ export class WarService {
     return await this.warRepository.createWarWithAttachedSide(war);
   }
 
+  async rollbackWar(id: string): Promise<void> {
+    const war = await this.warRepository.findWarById(id);
+    if (!war) throw new Error('War not found');
+
+    await this.warRepository.rollbackWar(id);
+  }
+
   private isBySameCompany(warDto: UploadWarDto, war: War): boolean {
     return (
       warDto.companyId === war.attackerId || warDto.companyId === war.defenderId

@@ -56,9 +56,11 @@ model Company {
 }
 
 model PlayerProfile {
-  id        String   @id @default(cuid())
-  player    Player   @relation(fields: [playerId], references: [id])
-  playerId  String   @unique
+  id        String  @id @default(cuid())
+  player    Player  @relation(fields: [playerId], references: [id])
+  playerId  String  @unique
+  mainClass String?
+
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
   views     Int      @default(0)
@@ -95,6 +97,24 @@ model WarSide {
   performances PlayerPerformance[]
 
   @@unique([warId, type])
+}
+
+model PlayerClassCount {
+  playerId    String
+  playerClass String
+  gamesCount  Int    @default(0)
+
+  @@id([playerId, playerClass])
+}
+
+model PlayerClassStats {
+  playerId    String
+  playerClass String
+  avgScore    Float?
+  rank        Int
+
+  @@id([playerId, playerClass])
+  @@map("PlayerClassStats")
 }
 
 model PlayerPerformance {

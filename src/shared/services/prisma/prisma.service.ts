@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { InternalLoggerService } from '../logger/internal-logger.service';
+import { playerPerformanceExtension } from './extension/player-performance.extension';
 
 @Injectable()
 export class PrismaService
@@ -8,7 +9,17 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor(private readonly logger: InternalLoggerService) {
-    super();
+    super({
+      log: [
+        { level: 'query', emit: 'event' },
+        { level: 'error', emit: 'event' },
+      ],
+    });
+    this.$on('query', (e) => this.logger.debug(e.query));
+    this.$on('error', (e) => this.logger.error('Prisma error', e.message));
+
+    const extended = this.$extends(playerPerformanceExtension);
+    Object.assign(this, extended);
   }
 
   async onModuleInit() {
