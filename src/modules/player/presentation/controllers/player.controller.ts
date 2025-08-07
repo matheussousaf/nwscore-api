@@ -1,20 +1,27 @@
 import { PlayerService } from '@modules/player/application/services/player.service';
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
+import { PaginatedSearchPlayersDto } from '@modules/player/application/dtos/search-players.dto';
 
 @Controller('player')
 export class PlayerController {
   constructor(private readonly playerService: PlayerService) {}
 
-  @Get(':nickname')
-  async findPlayerByNickname(@Param('nickname') nickname: string) {
+  @Get()
+  async findPlayerByNickname(@Query('nickname') nickname: string) {
+    console.log('entered here', nickname);
     return this.playerService.findPlayerByNickname(nickname);
   }
 
-  @Get(':nickname/:playerClass')
-  async getPlayerClassStats(
-    @Param('nickname') nickname: string,
-    @Param('playerClass') playerClass: string,
-  ) {
-    return this.playerService.getPlayerClassStats(nickname, playerClass);
+  @Get('search')
+  async searchPlayers(
+    @Query('query') query?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ): Promise<PaginatedSearchPlayersDto> {
+    return this.playerService.searchPlayers(
+      query,
+      parseInt(page, 10),
+      parseInt(limit, 10),
+    );
   }
 }

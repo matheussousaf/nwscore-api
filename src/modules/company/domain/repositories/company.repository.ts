@@ -15,6 +15,7 @@ export class CompanyRepository implements ICompanyRepository {
       data: {
         name: company.name,
         leaderId: company.leaderId,
+        world: company.world,
       },
     });
   }
@@ -30,7 +31,7 @@ export class CompanyRepository implements ICompanyRepository {
       });
 
       const company = await tx.company.create({
-        data: { name, faction, leaderId: user.id },
+        data: { name, faction, leaderId: user.id, world: createCompanyDto.world },
       });
 
       return { user, company };
@@ -42,6 +43,7 @@ export class CompanyRepository implements ICompanyRepository {
       companyId: company.id,
       leaderUsername: user.username,
       faction: company.faction,
+      world: company.world,
     };
   }
 }

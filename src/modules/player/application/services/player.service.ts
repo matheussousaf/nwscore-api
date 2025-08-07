@@ -1,19 +1,22 @@
-import { PlayerRepository } from '@modules/player/domain/repositories/player.repository';
 import { Injectable } from '@nestjs/common';
+import { PlayerRepository } from '@modules/player/domain/repositories/player.repository';
 import { PlayerStatsDto, WarHistoryEntry } from '../dtos/player-stats.dto';
+import { PaginatedSearchPlayersDto } from '../dtos/search-players.dto';
 
 @Injectable()
 export class PlayerService {
   constructor(private readonly playerRepository: PlayerRepository) {}
 
   async findPlayerByNickname(nickname: string) {
-    return await this.playerRepository.findPlayerByNickname(nickname);
+    return this.playerRepository.findPlayerByNickname(nickname);
   }
 
   async getPlayerClassStats(
     nickname: string,
     playerClass: string,
   ): Promise<PlayerStatsDto> {
+    console.log(`[PlayerService] Getting stats for ${nickname}:${playerClass}`);
+
     const performances =
       await this.playerRepository.findPerformancesWithWarByPlayerClass(
         nickname,
@@ -80,6 +83,28 @@ export class PlayerService {
       total,
       perWar,
       warHistory,
+    };
+  }
+
+  async searchPlayers(
+    query?: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedSearchPlayersDto> {
+    const result = await this.playerRepository.searchPlayers(
+      query,
+      page,
+      limit,
+    );
+
+    const totalPages = Math.ceil(result.total / limit);
+
+    return {
+      page,
+      limit,
+      total: result.total,
+      totalPages,
+      data: result.data,
     };
   }
 }

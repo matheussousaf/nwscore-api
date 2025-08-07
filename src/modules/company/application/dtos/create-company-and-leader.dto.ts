@@ -1,6 +1,6 @@
 import { Faction } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsString, ValidateNested } from 'class-validator';
+import { IsEnum, IsString, ValidateNested, IsOptional } from 'class-validator';
 
 class AdminCompanyDto {
   @IsString()
@@ -16,6 +16,10 @@ export class CreateCompanyAndLeaderDto {
 
   @IsEnum(Faction)
   faction: Faction;
+
+  @IsString()
+  @IsOptional()
+  world?: string;
 
   @ValidateNested()
   @Type(() => AdminCompanyDto)

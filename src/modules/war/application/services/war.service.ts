@@ -2,10 +2,14 @@ import { War } from '@prisma/client';
 import { UploadWarDto } from '../dtos/upload-war.dto';
 import { Injectable } from '@nestjs/common';
 import { WarRepository } from '@modules/war/domain/repositories/war.repository';
+import { RedisBackgroundService } from '@shared/services/redis-background.service';
 
 @Injectable()
 export class WarService {
-  constructor(private readonly warRepository: WarRepository) {}
+  constructor(
+    private readonly warRepository: WarRepository,
+    private readonly redisBackgroundService: RedisBackgroundService,
+  ) {}
 
   async uploadWar(war: UploadWarDto): Promise<War> {
     if (war.opponentId === war.companyId) {
@@ -47,10 +51,20 @@ export class WarService {
         );
       }
 
-      return await this.warRepository.attachSideToWar(war, existingWar);
+      const result = await this.warRepository.attachSideToWar(war, existingWar);
+      
+      // Update Redis leaderboards after successful database transaction
+      await this.updateRedisLeaderboards(war, result);
+      
+      return result;
     }
 
-    return await this.warRepository.createWarWithAttachedSide(war);
+    const result = await this.warRepository.createWarWithAttachedSide(war);
+    
+    // Update Redis leaderboards after successful database transaction
+    await this.updateRedisLeaderboards(war, result);
+    
+    return result;
   }
 
   async rollbackWar(id: string): Promise<void> {
@@ -64,5 +78,31 @@ export class WarService {
     return (
       warDto.companyId === war.attackerId || warDto.companyId === war.defenderId
     );
+  }
+
+  private async updateRedisLeaderboards(war: UploadWarDto, createdWar: War) {
+    // Get the resolved performances with actual database player IDs
+    const performances = await this.warRepository.resolvePerformances(war);
+    
+    // Transform to Redis format
+    const redisPerformances = performances.map(perf => ({
+      playerId: perf.playerId, // This is now the actual database ID
+      playerClass: perf.playerClass,
+      score: perf.score, // Use the resolved score
+      kills: perf.kills,
+      deaths: perf.deaths,
+      assists: perf.assists,
+      win: perf.win,
+    }));
+
+    // Update Redis leaderboards in the background (non-blocking)
+    setImmediate(async () => {
+      try {
+        await this.redisBackgroundService.updateLeaderboardsForPerformances(redisPerformances);
+      } catch (error) {
+        console.error('[WarService] Error updating Redis leaderboards:', error);
+        // Don't throw error to avoid affecting the main transaction
+      }
+    });
   }
 }

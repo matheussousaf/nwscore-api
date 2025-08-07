@@ -1,5 +1,5 @@
 import { WarSideType } from '@prisma/client';
-import { IsString, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsBoolean, IsDateString, IsOptional } from 'class-validator';
 import { PartyPerformanceDto } from './war-stats.dto';
 
 export class UploadWarDto {
@@ -20,6 +20,10 @@ export class UploadWarDto {
 
   @IsString()
   warType: WarSideType;
+
+  @IsString()
+  @IsOptional()
+  world?: string;
 
   stats: PartyPerformanceDto[];
 }

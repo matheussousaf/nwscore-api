@@ -29,14 +29,23 @@ export class WarRepository implements IWarRepository {
     });
   }
 
-  private async resolvePerformances(upload: UploadWarDto) {
+  public async resolvePerformances(upload: UploadWarDto) {
     const stats = upload.stats;
     if (!stats || stats.length === 0) {
       throw new Error('No player statistics provided');
     }
 
+    // Get the company to inherit world information
+    const company = await this.prisma.company.findUnique({
+      where: { id: upload.companyId },
+      select: { world: true },
+    });
+
     const nicknames = stats.flatMap((s) => s.players.map((p) => p.nickname));
-    const players = await this.playerRepository.upsertPlayers(nicknames);
+    const players = await this.playerRepository.upsertPlayers(
+      nicknames,
+      company?.world,
+    );
 
     const map = new Map<string, Player>();
     for (const player of players) {
@@ -49,6 +58,11 @@ export class WarRepository implements IWarRepository {
           areNicknamesEqual(existing.nickname, player.nickname),
         );
 
+        // Random score 1-10 for testing purposes
+        const randomScore = Math.floor(Math.random() * 10) + 1;
+
+        console.log('match', match);
+
         if (!match) throw new Error(`Unresolved player: ${player.nickname}`);
 
         return {
@@ -58,7 +72,8 @@ export class WarRepository implements IWarRepository {
           assists: player.assists,
           healing: player.healing,
           damage: player.damage,
-          playerClass: player.playerClass,
+          score: randomScore,
+          playerClass: player.playerClass.toLowerCase(),
           win: upload.isWinner,
         };
       }),
@@ -117,7 +132,6 @@ export class WarRepository implements IWarRepository {
         .map((p) => p.playerId)
         .filter((id): id is string => !!id);
 
-      // 2. Remove their profiles and the players themselves if they exist
       if (playerIds.length) {
         await tx.playerProfile.deleteMany({
           where: { playerId: { in: playerIds } },
@@ -127,15 +141,20 @@ export class WarRepository implements IWarRepository {
         });
       }
 
-      // 3. Delete all performances for this war
       await tx.playerPerformance.deleteMany({
         where: { warSide: { warId } },
       });
 
-      // 4. Delete both war‐sides
+      await tx.playerClassStats.deleteMany({
+        where: { playerId: { in: playerIds } },
+      });
+
+      await tx.playerClassCount.deleteMany({
+        where: { playerId: { in: playerIds } },
+      });
+
       await tx.warSide.deleteMany({ where: { warId } });
 
-      // 5. Delete the war record
       await tx.war.delete({ where: { id: warId } });
     });
   }
@@ -176,6 +195,7 @@ export class WarRepository implements IWarRepository {
         data: {
           territory: warData.territory,
           startTime: warData.startTime,
+          world: warData.world,
           attackerId,
           defenderId,
           winner: winnerType,

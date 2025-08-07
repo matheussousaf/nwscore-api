@@ -1,5 +1,5 @@
 import { Faction } from '@prisma/client';
-import { IsString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class CreateCompanyAndLeaderResponseDto {
   @IsString()
@@ -13,4 +13,11 @@ export class CreateCompanyAndLeaderResponseDto {
 
   @IsString()
   leaderUsername: string;
+
+  @IsString()
+  companyId: string;
+
+  @IsString()
+  @IsOptional()
+  world?: string;
 }

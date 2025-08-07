@@ -28,7 +28,7 @@ model User {
 model Player {
   id        String   @id @default(cuid())
   nickname  String   @unique
-  server    String?
+  world    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   classes   String[] @default([])
@@ -36,7 +36,7 @@ model Player {
   performances  PlayerPerformance[]
   PlayerProfile PlayerProfile?
 
-  @@unique([nickname, server])
+  @@unique([nickname, world])
 }
 
 model Company {
@@ -47,6 +47,7 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   faction   Faction?
+  world    String?
 
   warsAsAttacker War[] @relation("AttackerWars")
   warsAsDefender War[] @relation("DefenderWars")
@@ -75,6 +76,7 @@ model War {
   id         String       @id @default(cuid())
   territory  String
   startTime  DateTime
+  world     String?
   attacker   Company      @relation("AttackerWars", fields: [attackerId], references: [id])
   attackerId String
   defender   Company      @relation("DefenderWars", fields: [defenderId], references: [id])

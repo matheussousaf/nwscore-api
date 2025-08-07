@@ -28,7 +28,34 @@ export function levenshtein(a: string, b: string): number {
 export function areNicknamesEqual(
   a: string,
   b: string,
-  threshold = 3,
+  threshold?: number,
 ): boolean {
-  return levenshtein(normalizeNick(a), normalizeNick(b)) <= threshold;
+  const normalizedA = normalizeNick(a);
+  const normalizedB = normalizeNick(b);
+  
+  // If no threshold provided, use adaptive threshold
+  if (threshold === undefined) {
+    const minLength = Math.min(normalizedA.length, normalizedB.length);
+    const maxLength = Math.max(normalizedA.length, normalizedB.length);
+    
+    // For very short strings (1-2 chars), be very strict
+    if (minLength <= 2) {
+      threshold = 0; // Only exact matches
+    }
+    // For short strings (3-4 chars), be strict
+    else if (minLength <= 4) {
+      threshold = 1; // Allow only 1 character difference
+    }
+    // For medium strings (5-6 chars), be moderately strict
+    else if (minLength <= 6) {
+      threshold = 2; // Allow 2 character differences
+    }
+    // For longer strings, be slightly more permissive but still strict
+    else {
+      threshold = Math.min(3, Math.floor(minLength * 0.3)); // Max 30% of min length, capped at 3
+    }
+  }
+  
+  const distance = levenshtein(normalizedA, normalizedB);
+  return distance <= threshold;
 }
