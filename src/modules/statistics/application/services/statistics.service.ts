@@ -9,14 +9,14 @@ import { PaginatedLeaderboardMostWinsDto } from '../dtos/leaderboard-most-wins.d
 import { PaginatedLeaderboardLeastDeathsDto } from '../dtos/leaderboard-least-deaths.dto';
 import { PaginatedLeaderboardMostKillsDto } from '../dtos/leaderboard-most-kills.dto';
 import { PaginatedLeaderboardMostAssistsDto } from '../dtos/leaderboard-most-assists.dto';
-import { RedisLeaderboardService } from '@shared/services/redis-leaderboard.service';
+import { LeaderboardService } from './leaderboard.service';
 
 @Injectable()
 export class StatisticsService {
   constructor(
     private readonly playerRepository: PlayerRepository,
     private readonly warRepository: WarRepository,
-    private readonly redisLeaderboardService: RedisLeaderboardService,
+    private readonly leaderboardService: LeaderboardService,
   ) {}
 
   async getRecentWars(): Promise<RecentWarDto[]> {
@@ -41,7 +41,7 @@ export class StatisticsService {
     const LIMIT_TRENDING_PLAYERS = 4;
 
     // Get top players by win rate from Redis (as a proxy for trending)
-    const result = await this.redisLeaderboardService.getWinRateLeaderboard(
+    const result = await this.leaderboardService.getWinRateLeaderboard(
       1,
       LIMIT_TRENDING_PLAYERS,
     );
@@ -75,16 +75,16 @@ export class StatisticsService {
 
   async getBestPerformances() {
     const LIMIT_BEST_PERFORMANCES = 4;
-    
+
     // Get top players by average score from Redis (ordered by avgScore)
-    const result = await this.redisLeaderboardService.getAverageScoreLeaderboard(
+    const result = await this.leaderboardService.getAverageScoreLeaderboard(
       1,
       LIMIT_BEST_PERFORMANCES,
     );
 
     // Enrich with player data (already ordered by avgScore from Redis)
     const bestPerformances = await Promise.all(
-      result.data.map(async (item, index) => {
+      result.data.map(async (item) => {
         const player = await this.playerRepository.findPlayerById(
           item.playerId,
         );
@@ -110,16 +110,16 @@ export class StatisticsService {
 
   async getTopPerformers() {
     const LIMIT_TOP_PERFORMERS = 4;
-    
+
     // Get top players by average score from Redis (ordered by avgScore)
-    const result = await this.redisLeaderboardService.getAverageScoreLeaderboard(
+    const result = await this.leaderboardService.getAverageScoreLeaderboard(
       1,
       LIMIT_TOP_PERFORMERS,
     );
 
     // Enrich with player data (already ordered by avgScore from Redis)
     const topPerformers = await Promise.all(
-      result.data.map(async (item, index) => {
+      result.data.map(async (item) => {
         const player = await this.playerRepository.findPlayerById(
           item.playerId,
         );
@@ -151,7 +151,7 @@ export class StatisticsService {
     world?: string,
     playerClass?: string,
   ): Promise<PaginatedLeaderboardWinRateDto> {
-    const result = await this.redisLeaderboardService.getWinRateLeaderboard(
+    const result = await this.leaderboardService.getWinRateLeaderboard(
       page,
       limit,
       world,
@@ -161,7 +161,7 @@ export class StatisticsService {
     // Filter by minimum games and enrich with player data
     const enrichedData = await Promise.all(
       result.data.map(async (item) => {
-        const playerStats = await this.redisLeaderboardService.getPlayerStats(
+        const playerStats = await this.leaderboardService.getPlayerStats(
           item.playerId,
           item.mainClass,
         );
@@ -173,6 +173,7 @@ export class StatisticsService {
 
         return {
           ...item,
+          winrate: playerStats?.winRate,
           nickname: player?.nickname || 'Unknown',
           world: player?.world,
           totalGames: playerStats?.gamesPlayed || 0,
@@ -224,7 +225,7 @@ export class StatisticsService {
     world?: string,
     playerClass?: string,
   ): Promise<PaginatedLeaderboardLeastDeathsDto> {
-    const result = await this.redisLeaderboardService.getLeastDeathsLeaderboard(
+    const result = await this.leaderboardService.getLeastDeathsLeaderboard(
       page,
       limit,
       world,
@@ -234,7 +235,7 @@ export class StatisticsService {
     // Enrich with player data
     const enrichedData = await Promise.all(
       result.data.map(async (item) => {
-        const playerStats = await this.redisLeaderboardService.getPlayerStats(
+        const playerStats = await this.leaderboardService.getPlayerStats(
           item.playerId,
           item.mainClass,
         );
@@ -246,6 +247,7 @@ export class StatisticsService {
 
         return {
           ...item,
+          averageDeaths: playerStats?.avgDeaths,
           nickname: player?.nickname || 'Unknown',
           world: player?.world,
           totalDeaths: playerStats?.totalDeaths || 0,
@@ -268,7 +270,7 @@ export class StatisticsService {
     world?: string,
     playerClass?: string,
   ): Promise<PaginatedLeaderboardMostKillsDto> {
-    const result = await this.redisLeaderboardService.getMostKillsLeaderboard(
+    const result = await this.leaderboardService.getMostKillsLeaderboard(
       page,
       limit,
       world,
@@ -278,7 +280,7 @@ export class StatisticsService {
     // Enrich with player data
     const enrichedData = await Promise.all(
       result.data.map(async (item) => {
-        const playerStats = await this.redisLeaderboardService.getPlayerStats(
+        const playerStats = await this.leaderboardService.getPlayerStats(
           item.playerId,
           item.mainClass,
         );
@@ -290,6 +292,7 @@ export class StatisticsService {
 
         return {
           ...item,
+          averageKills: playerStats?.avgKills,
           nickname: player?.nickname || 'Unknown',
           world: player?.world,
           totalKills: playerStats?.totalKills || 0,
@@ -312,7 +315,7 @@ export class StatisticsService {
     world?: string,
     playerClass?: string,
   ): Promise<PaginatedLeaderboardMostAssistsDto> {
-    const result = await this.redisLeaderboardService.getMostAssistsLeaderboard(
+    const result = await this.leaderboardService.getMostAssistsLeaderboard(
       page,
       limit,
       world,
@@ -322,7 +325,7 @@ export class StatisticsService {
     // Enrich with player data
     const enrichedData = await Promise.all(
       result.data.map(async (item) => {
-        const playerStats = await this.redisLeaderboardService.getPlayerStats(
+        const playerStats = await this.leaderboardService.getPlayerStats(
           item.playerId,
           item.mainClass,
         );
@@ -334,6 +337,7 @@ export class StatisticsService {
 
         return {
           ...item,
+          averageAssists: playerStats?.avgAssists,
           nickname: player?.nickname || 'Unknown',
           world: player?.world,
           totalAssists: playerStats?.totalAssists || 0,
@@ -358,9 +362,7 @@ export class StatisticsService {
     try {
       // Get all players with their average scores for this class
       const allPlayerStats =
-        await this.redisLeaderboardService.getAllPlayerStatsForClass(
-          playerClass,
-        );
+        await this.leaderboardService.getAllPlayerStatsForClass(playerClass);
 
       // Sort by average score (descending) to get rankings
       const sortedPlayers = allPlayerStats

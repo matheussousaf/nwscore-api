@@ -35,4 +35,4 @@ export class PaginatedLeaderboardLeastDeathsDto {
   totalPages: number;
 
   data: LeaderboardLeastDeathsEntryDto[];
-} 
+}

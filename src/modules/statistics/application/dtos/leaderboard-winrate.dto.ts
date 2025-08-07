@@ -35,4 +35,4 @@ export class PaginatedLeaderboardWinRateDto {
   totalPages: number;
 
   data: LeaderboardWinRateEntryDto[];
-} 
+}

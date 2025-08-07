@@ -4,12 +4,13 @@ import { WarController } from './presentation/controllers/war.controller';
 import { WarService } from './application/services/war.service';
 import { PrismaModule } from '@shared/services/prisma/prisma.module';
 import { PlayerModule } from '@modules/player/player.module';
-import { RedisBackgroundService } from '@shared/services/redis-background.service';
+import { StatisticsModule } from '@modules/statistics/statistics.module';
+import { BackgroundModule } from '@shared/services/background/background.module';
 
 @Module({
-  imports: [PrismaModule, PlayerModule],
+  imports: [PrismaModule, PlayerModule, StatisticsModule, BackgroundModule],
   controllers: [WarController],
-  providers: [WarRepository, WarService, RedisBackgroundService],
+  providers: [WarRepository, WarService],
   exports: [WarRepository, WarService],
 })
 export class WarModule {}

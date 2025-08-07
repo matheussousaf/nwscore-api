@@ -1,20 +1,20 @@
 import { Controller, Get, Query, Post } from '@nestjs/common';
 import { StatisticsService } from '@modules/statistics/application/services/statistics.service';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PaginatedLeaderboardWinRateDto } from '@modules/statistics/application/dtos/leaderboard-winrate.dto';
 import { PaginatedLeaderboardMostWinsDto } from '@modules/statistics/application/dtos/leaderboard-most-wins.dto';
 import { PaginatedLeaderboardLeastDeathsDto } from '@modules/statistics/application/dtos/leaderboard-least-deaths.dto';
 import { PaginatedLeaderboardMostKillsDto } from '@modules/statistics/application/dtos/leaderboard-most-kills.dto';
 import { PaginatedLeaderboardMostAssistsDto } from '@modules/statistics/application/dtos/leaderboard-most-assists.dto';
 import { StatisticsDto } from '@modules/statistics/application/dtos/statistics.dto';
-import { RedisLeaderboardService } from '@shared/services/redis-leaderboard.service';
+import { LeaderboardService } from '@modules/statistics/application/services/leaderboard.service';
 
 @ApiTags('Statistics')
 @Controller('statistics')
 export class StatisticsController {
   constructor(
     private readonly statisticsService: StatisticsService,
-    private readonly redisLeaderboardService: RedisLeaderboardService,
+    private readonly leaderboardService: LeaderboardService,
   ) {}
 
   @Get('home')
@@ -39,8 +39,8 @@ export class StatisticsController {
   @Post('redis/reset')
   @ApiOperation({ summary: 'Clear and reinitialize Redis data (DEBUG ONLY)' })
   async resetRedisData() {
-    await this.redisLeaderboardService.clearAllLeaderboards();
-    await this.redisLeaderboardService.initializeFromDatabase();
+    await this.leaderboardService.clearAllLeaderboards();
+    await this.leaderboardService.initializeFromDatabase();
     return { message: 'Redis data cleared and reinitialized' };
   }
 

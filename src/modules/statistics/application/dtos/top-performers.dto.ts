@@ -12,4 +12,4 @@ export class TopPerformerDto {
 
   @IsNumber()
   rank: number;
-} 
+}

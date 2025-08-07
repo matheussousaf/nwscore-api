@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
-import { RedisLeaderboardService } from './redis-leaderboard.service';
-import { PrismaModule } from './prisma/prisma.module';
+import { RedisService } from './redis.service';
+import { InternalLoggerModule } from '../logger/internal-logger.module';
 
 @Module({
   imports: [
@@ -13,9 +13,9 @@ import { PrismaModule } from './prisma/prisma.module';
         ttl: 60 * 60 * 24, // 24 hours
       }),
     }),
-    PrismaModule,
+    InternalLoggerModule,
   ],
-  providers: [RedisLeaderboardService],
-  exports: [RedisLeaderboardService, CacheModule],
+  providers: [RedisService],
+  exports: [RedisService, CacheModule],
 })
 export class RedisModule {} 

@@ -2,13 +2,15 @@ import { War } from '@prisma/client';
 import { UploadWarDto } from '../dtos/upload-war.dto';
 import { Injectable } from '@nestjs/common';
 import { WarRepository } from '@modules/war/domain/repositories/war.repository';
-import { RedisBackgroundService } from '@shared/services/redis-background.service';
+import { LeaderboardService } from '@modules/statistics/application/services/leaderboard.service';
+import { BackgroundService } from '@shared/services/background/background.service';
 
 @Injectable()
 export class WarService {
   constructor(
     private readonly warRepository: WarRepository,
-    private readonly redisBackgroundService: RedisBackgroundService,
+    private readonly leaderboardService: LeaderboardService,
+    private readonly backgroundService: BackgroundService,
   ) {}
 
   async uploadWar(war: UploadWarDto): Promise<War> {
@@ -96,13 +98,13 @@ export class WarService {
     }));
 
     // Update Redis leaderboards in the background (non-blocking)
-    setImmediate(async () => {
-      try {
-        await this.redisBackgroundService.updateLeaderboardsForPerformances(redisPerformances);
-      } catch (error) {
+    await this.backgroundService.executeInBackground(
+      async () => {
+        await this.leaderboardService.updatePlayerStatsBatch(redisPerformances);
+      },
+      (error) => {
         console.error('[WarService] Error updating Redis leaderboards:', error);
-        // Don't throw error to avoid affecting the main transaction
       }
-    });
+    );
   }
 }

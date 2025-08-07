@@ -8,7 +8,6 @@ export class PlayerController {
 
   @Get()
   async findPlayerByNickname(@Query('nickname') nickname: string) {
-    console.log('entered here', nickname);
     return this.playerService.findPlayerByNickname(nickname);
   }
 
