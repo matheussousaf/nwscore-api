@@ -1,4 +1,5 @@
 import { War } from '@prisma/client';
+
 import { UploadWarDto } from '../dtos/upload-war.dto';
 import { Injectable } from '@nestjs/common';
 import { WarRepository } from '@modules/war/domain/repositories/war.repository';
@@ -54,18 +55,18 @@ export class WarService {
       }
 
       const result = await this.warRepository.attachSideToWar(war, existingWar);
-      
+
       // Update Redis leaderboards after successful database transaction
-      await this.updateRedisLeaderboards(war, result);
-      
+      await this.updateRedisLeaderboards(war);
+
       return result;
     }
 
     const result = await this.warRepository.createWarWithAttachedSide(war);
-    
+
     // Update Redis leaderboards after successful database transaction
-    await this.updateRedisLeaderboards(war, result);
-    
+    await this.updateRedisLeaderboards(war);
+
     return result;
   }
 
@@ -82,12 +83,12 @@ export class WarService {
     );
   }
 
-  private async updateRedisLeaderboards(war: UploadWarDto, createdWar: War) {
+  private async updateRedisLeaderboards(war: UploadWarDto) {
     // Get the resolved performances with actual database player IDs
     const performances = await this.warRepository.resolvePerformances(war);
-    
+
     // Transform to Redis format
-    const redisPerformances = performances.map(perf => ({
+    const redisPerformances = performances.map((perf) => ({
       playerId: perf.playerId, // This is now the actual database ID
       playerClass: perf.playerClass,
       score: perf.score, // Use the resolved score
@@ -104,7 +105,7 @@ export class WarService {
       },
       (error) => {
         console.error('[WarService] Error updating Redis leaderboards:', error);
-      }
+      },
     );
   }
 }

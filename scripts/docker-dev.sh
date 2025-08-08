@@ -54,7 +54,7 @@ start_dev() {
     fi
     
     # Start Redis and Redis Commander
-    docker-compose -f docker-compose.dev.yml up -d
+    docker compose -f docker-compose.dev.yml up -d
     
     print_success "Development environment started!"
     print_status "Redis is available at: redis://localhost:6379"
@@ -68,27 +68,27 @@ start_dev() {
 # Function to stop development environment
 stop_dev() {
     print_status "Stopping development environment..."
-    docker-compose -f docker-compose.dev.yml down
+    docker compose -f docker-compose.dev.yml down
     print_success "Development environment stopped!"
 }
 
 # Function to restart development environment
 restart_dev() {
     print_status "Restarting development environment..."
-    docker-compose -f docker-compose.dev.yml restart
+    docker compose -f docker-compose.dev.yml restart
     print_success "Development environment restarted!"
 }
 
 # Function to show logs
 show_logs() {
     print_status "Showing logs from development containers..."
-    docker-compose -f docker-compose.dev.yml logs -f
+    docker compose -f docker-compose.dev.yml logs -f
 }
 
 # Function to show status
 show_status() {
     print_status "Development containers status:"
-    docker-compose -f docker-compose.dev.yml ps
+    docker compose -f docker-compose.dev.yml ps
 }
 
 # Function to clean everything
@@ -98,7 +98,7 @@ clean_dev() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_status "Cleaning development environment..."
-        docker-compose -f docker-compose.dev.yml down -v
+        docker compose -f docker-compose.dev.yml down -v
         print_success "Development environment cleaned!"
     else
         print_status "Clean operation cancelled."
@@ -138,4 +138,4 @@ case "$1" in
         show_usage
         exit 1
         ;;
-esac 
+esac
