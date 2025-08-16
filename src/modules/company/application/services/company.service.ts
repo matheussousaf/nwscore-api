@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateCompanyAndLeaderDto } from '../dtos/create-company-and-leader.dto';
 import { CreateCompanyAndLeaderResponseDto } from '../dtos/create-company-and-leader-response.dto';
 import { CompanyRepository } from '@modules/company/domain/repositories/company.repository';
+import { CompanyInformationDto } from '../dtos/company-information.dto';
 
 @Injectable()
 export class CompanyService {
@@ -13,5 +14,9 @@ export class CompanyService {
     return await this.companyRepository.createCompanyAndLeader(
       createCompanyDto,
     );
+  }
+
+  async getCompanyInformation(companyId: string): Promise<CompanyInformationDto> {
+    return await this.companyRepository.getCompanyInformation(companyId);
   }
 }

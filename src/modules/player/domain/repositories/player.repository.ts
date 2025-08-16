@@ -63,6 +63,7 @@ export class PlayerRepository implements IPlayerRepository {
         avgDamage: number;
         totalWins: number;
         winrate: number;
+        avgScore: number;
       }[]
     >`
       SELECT
@@ -78,7 +79,8 @@ export class PlayerRepository implements IPlayerRepository {
         SUM(pp.damage) as "totalDamage",
         ROUND(AVG(pp.damage)::numeric, 2) as "avgDamage",
         SUM(CASE WHEN pp.win = true THEN 1 ELSE 0 END) as "totalWins",
-        ROUND((SUM(CASE WHEN pp.win = true THEN 1 ELSE 0 END)::float / COUNT(*))::numeric, 2) as winrate
+        ROUND((SUM(CASE WHEN pp.win = true THEN 1 ELSE 0 END)::float / COUNT(*))::numeric, 2) as winrate,
+        ROUND(AVG(pp.score)::numeric, 2) as "avgScore"
       FROM "PlayerPerformance" pp
       WHERE pp."playerId" = ${player.id}
       GROUP BY pp."playerClass"
@@ -93,6 +95,8 @@ export class PlayerRepository implements IPlayerRepository {
       attacker: perf.warSide.war.attacker.name,
       defender: perf.warSide.war.defender.name,
       territory: perf.warSide.war.territory,
+      startTime: perf.warSide.war.startTime,
+      world: perf.warSide.war.world,
       stats: {
         kills: perf.kills,
         deaths: perf.deaths,
@@ -105,6 +109,7 @@ export class PlayerRepository implements IPlayerRepository {
     // Format class statistics
     const classes = classStats.map((stat) => ({
       playerClass: stat.playerClass,
+      averageScore: Number(stat.avgScore),
       kills: {
         total: Number(stat.totalKills),
         avg: Number(stat.avgKills),
@@ -318,7 +323,7 @@ export class PlayerRepository implements IPlayerRepository {
         rank: number;
       }[]
     >`
-    SELECT
+    SELECT DISTINCT ON (pf."playerId")
       pf."playerId"                     AS "playerId",
       pl.nickname                       AS nickname,
       pf.views                          AS views,
@@ -330,7 +335,7 @@ export class PlayerRepository implements IPlayerRepository {
     JOIN "PlayerClassStats"   AS pcs
       ON pcs."playerId"    = pf."playerId"
      AND pcs."playerClass" = pf."mainClass"
-    ORDER BY pf.views DESC
+    ORDER BY pf."playerId", pf.views DESC, pcs.rank ASC
     LIMIT ${limit};
   `;
 

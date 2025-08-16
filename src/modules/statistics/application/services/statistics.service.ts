@@ -43,7 +43,7 @@ export class StatisticsService {
     // Get top players by win rate from Redis (as a proxy for trending)
     const result = await this.leaderboardService.getWinRateLeaderboard(
       1,
-      LIMIT_TRENDING_PLAYERS,
+      LIMIT_TRENDING_PLAYERS * 2, // Get more results to account for deduplication
     );
 
     // Enrich with player data
@@ -70,7 +70,18 @@ export class StatisticsService {
       }),
     );
 
-    return trendingPlayers;
+    // Deduplicate players by playerId, keeping the first occurrence (best winrate)
+    const seenPlayers = new Set<string>();
+    const uniqueTrendingPlayers = trendingPlayers.filter((player) => {
+      if (seenPlayers.has(player.playerId)) {
+        return false;
+      }
+      seenPlayers.add(player.playerId);
+      return true;
+    });
+
+    // Return only the requested limit
+    return uniqueTrendingPlayers.slice(0, LIMIT_TRENDING_PLAYERS);
   }
 
   async getBestPerformances() {

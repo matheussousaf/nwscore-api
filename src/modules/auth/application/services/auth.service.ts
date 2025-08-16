@@ -1,19 +1,21 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ConflictException, Injectable, Req, Inject } from '@nestjs/common';
 import { UserRepository } from '@modules/user/domain/repositories/user.repository';
 import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
-import { NewPasswordDto } from '../dtos/new-password.dto';
 import { ConfigService } from '@nestjs/config';
 import { SignUpDto } from '../dtos/signup.dto';
 import { KnownExceptions } from '@core/exceptions/known-exceptions';
+import { LoginResponseDto } from '../dtos/login-response.dto';
+import { ISessionService, SESSION_SERVICE } from '../interfaces/session.interface';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly jwt: JwtService,
+    @Inject(SESSION_SERVICE) private readonly sessionService: ISessionService,
     private readonly config: ConfigService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async validateUser(identifier: string, password: string): Promise<User> {
@@ -27,13 +29,48 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...payload } = user;
-    return { access_token: this.jwt.sign(payload) };
+  async login(user: User, ip?: string, userAgent?: string): Promise<LoginResponseDto> {
+    try {
+      const userWithCompanies = await this.userRepository.findByIdWithCompanies(user.id);
+      
+      if (!userWithCompanies) {
+        throw KnownExceptions.notFoundUser();
+      }
+  
+      const { sessionId } = await this.sessionService.createSession(
+        user.id,
+        ip,
+        userAgent,
+        24,
+      );
+      
+      const payload = {
+        sub: user.id,
+        sessionId: sessionId,
+        username: user.username,
+      };
+      
+      const access_token = this.jwtService.sign(payload, {
+        expiresIn: '24h',
+      });
+      
+      return {
+        access_token,
+        user: {
+          id: userWithCompanies.id,
+          username: userWithCompanies.username,
+          email: userWithCompanies.email,
+          name: userWithCompanies.name,
+          companies: userWithCompanies.companiesLed,
+        },
+      };
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   }
 
-  async signup(dto: SignUpDto) {
+  async signup(dto: SignUpDto): Promise<User> {
     const { username, email, password } = dto;
 
     if (await this.userRepository.findByUsername(username)) {
@@ -60,13 +97,15 @@ export class AuthService {
     return this.userRepository.update(userId, { email });
   }
 
-  async newPassword(dto: NewPasswordDto): Promise<void> {
-    const payload = this.jwt.verify<{ id: string }>(dto.token);
-    const user = await this.userRepository.findById(payload.id);
-    if (!user) throw KnownExceptions.notFoundUser();
-
-    const saltRounds = Number(this.config.get('BCRYPT_SALT')) || 10;
-    const hash = await bcrypt.hash(dto.password, saltRounds);
-    await this.userRepository.updatePassword(user.id, hash);
+  async logout(token: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify(token);
+      if (payload.sessionId) {
+        await this.sessionService.deleteSession(payload.sessionId);
+      }
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   }
 }

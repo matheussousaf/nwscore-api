@@ -55,4 +55,24 @@ export class UserRepository implements IUserRepository {
 
     return user;
   }
+
+  async findByIdWithCompanies(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        companiesLed: {
+          select: {
+            id: true,
+            name: true,
+            faction: true,
+            world: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    return user;
+  }
 }

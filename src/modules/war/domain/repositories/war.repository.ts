@@ -114,6 +114,20 @@ export class WarRepository implements IWarRepository {
   }
 
   /**
+   * Get all players affected by a war (for Redis reset purposes)
+   */
+  async getPlayersAffectedByWar(warId: string): Promise<Array<{ playerId: string; playerClass: string }>> {
+    const performances = await this.prisma.playerPerformance.findMany({
+      where: { warSide: { warId } },
+      select: { playerId: true, playerClass: true },
+    });
+    
+    return performances
+      .filter((p) => p.playerId)
+      .map((p) => ({ playerId: p.playerId!, playerClass: p.playerClass }));
+  }
+
+  /**
    * Roll back a war and all its dependent records.
    * Deletes:
    *  - any dynamically created PlayerProfile and Player for this war

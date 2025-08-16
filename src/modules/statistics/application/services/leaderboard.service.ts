@@ -495,6 +495,56 @@ export class LeaderboardService implements OnModuleInit {
     this.logger.log('Cleared all leaderboards');
   }
 
+  // Reset Redis data for specific players (for war rollback)
+  async resetPlayerData(
+    players: Array<{ playerId: string; playerClass: string }>,
+  ): Promise<void> {
+    this.logger.log(`Resetting Redis data for ${players.length} players`);
+
+    try {
+      // Get all player stats keys to delete
+      const playerStatsKeys = players.map((p) =>
+        this.getPlayerStatsKey(p.playerId, p.playerClass),
+      );
+
+      // Delete player stats
+      if (playerStatsKeys.length > 0) {
+        await Promise.all(
+          playerStatsKeys.map((key) => this.redisService.del(key)),
+        );
+      }
+
+      // Remove players from all leaderboards
+      const leaderboardKeys = [
+        this.getWinRateKey(),
+        this.getMostWinsKey(),
+        this.getLeastDeathsKey(),
+        this.getMostKillsKey(),
+        this.getMostAssistsKey(),
+        this.getAverageScoreKey(),
+      ];
+
+      for (const leaderboardKey of leaderboardKeys) {
+        for (const player of players) {
+          const playerData = JSON.stringify({
+            playerId: player.playerId,
+            playerClass: player.playerClass,
+            nickname: '',
+          });
+
+          await this.redisService.zRem(leaderboardKey, playerData);
+        }
+      }
+
+      this.logger.log(
+        `Successfully reset Redis data for ${players.length} players`,
+      );
+    } catch (error) {
+      this.logger.error('Error resetting player data:', error);
+      throw error;
+    }
+  }
+
   // Initialize leaderboards from existing database data
   async initializeFromDatabase(): Promise<void> {
     try {

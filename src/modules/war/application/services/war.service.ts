@@ -74,7 +74,24 @@ export class WarService {
     const war = await this.warRepository.findWarById(id);
     if (!war) throw new Error('War not found');
 
+    // Get affected players before rolling back the war
+    const affectedPlayers =
+      await this.warRepository.getPlayersAffectedByWar(id);
+
+    // Rollback the war in the database
     await this.warRepository.rollbackWar(id);
+
+    // Reset Redis data for affected players to prevent stale data
+    if (affectedPlayers.length > 0) {
+      await this.backgroundService.executeInBackground(
+        async () => {
+          await this.leaderboardService.resetPlayerData(affectedPlayers);
+        },
+        (error) => {
+          console.error('[WarService] Error resetting Redis data:', error);
+        },
+      );
+    }
   }
 
   private isBySameCompany(warDto: UploadWarDto, war: War): boolean {

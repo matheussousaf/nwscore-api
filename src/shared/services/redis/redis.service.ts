@@ -47,6 +47,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return await this.redisClient.keys(pattern);
   }
 
+  async expire(key: string, seconds: number): Promise<number> {
+    return await this.redisClient.expire(key, seconds);
+  }
+
   // Hash operations
   async hSet(key: string, field: string, value: string): Promise<number> {
     return await this.redisClient.hSet(key, field, value);
@@ -86,6 +90,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   // Sorted Set operations
   async zAdd(key: string, score: number, value: string): Promise<number> {
     return await this.redisClient.zAdd(key, { score, value });
+  }
+
+  async zRem(key: string, value: string): Promise<number> {
+    return await this.redisClient.zRem(key, value);
   }
 
   async zAddMultiple(
