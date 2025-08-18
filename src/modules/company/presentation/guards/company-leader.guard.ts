@@ -37,3 +37,4 @@ export class CompanyLeaderGuard implements CanActivate {
     return true;
   }
 }
+

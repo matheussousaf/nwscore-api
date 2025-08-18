@@ -9,9 +9,6 @@ export class AppConfig {
   port = 3000;
 
   @IsString()
-  jwtSecret: string;
-
-  @IsString()
   clientUrl: string;
 
   @IsString()
@@ -21,7 +18,6 @@ export class AppConfig {
 export const appConfig = registerAs<AppConfig>('app', () => {
   const config = {
     port: Number(process.env.PORT),
-    jwtSecret: String(process.env.JWT_SECRET),
     clientUrl: String(process.env.CLIENT_URL),
     resetPasswordUrl: String(process.env.RESET_PASSWORD_URL),
   };

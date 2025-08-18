@@ -12,6 +12,6 @@ export const mockUserSignup: SignUpDto = {
   password: 'hashed-password',
 };
 
-export const mockedAccessToken = {
-  access_token: 'mock-token',
+export const mockedSessionToken = {
+  session_token: 'mock-session-token',
 };

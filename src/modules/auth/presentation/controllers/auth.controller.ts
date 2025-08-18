@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Req, Delete, Headers, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Delete,
+  Headers,
+  Get,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from '../../application/services/auth.service';
 import { LoginDto } from '../../application/dtos/login.dto';
 import { SignUpDto } from '@modules/auth/application/dtos/signup.dto';
@@ -23,10 +32,10 @@ export class AuthController {
       loginDto.username,
       loginDto.password,
     );
-    
+
     const ip = this.getClientIp(request);
     const userAgent = request.headers['user-agent'];
-    
+
     return this.authService.login(user, ip, userAgent);
   }
 
@@ -37,21 +46,31 @@ export class AuthController {
     @Req() request: Request,
   ): Promise<LoginResponseDto> {
     const user = await this.authService.signup(signupDto);
-    
+
     const ip = this.getClientIp(request);
     const userAgent = request.headers['user-agent'];
-    
+
     return this.authService.login(user, ip, userAgent);
+  }
+
+  @Post('validate-session')
+  async validateSession(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Session ')) {
+      throw new Error('Invalid authorization header');
+    }
+
+    const sessionToken = authHeader.substring(8);
+    return await this.authService.validateSession(sessionToken);
   }
 
   @Delete('logout')
   async logout(@Headers('authorization') authHeader: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith('Session ')) {
       throw new Error('Invalid authorization header');
     }
-    
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    await this.authService.logout(token);
+
+    const sessionToken = authHeader.substring(8); // Remove 'Session ' prefix
+    await this.authService.logout(sessionToken);
     return { message: 'Logged out successfully' };
   }
 

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Req, Inject } from '@nestjs/common';
+import { ConflictException, Injectable, Inject } from '@nestjs/common';
 import { UserRepository } from '@modules/user/domain/repositories/user.repository';
 import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
@@ -6,8 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { SignUpDto } from '../dtos/signup.dto';
 import { KnownExceptions } from '@core/exceptions/known-exceptions';
 import { LoginResponseDto } from '../dtos/login-response.dto';
-import { ISessionService, SESSION_SERVICE } from '../interfaces/session.interface';
-import { JwtService } from '@nestjs/jwt';
+import {
+  ISessionService,
+  SESSION_SERVICE,
+} from '../interfaces/session.interface';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +17,6 @@ export class AuthService {
     private readonly userRepository: UserRepository,
     @Inject(SESSION_SERVICE) private readonly sessionService: ISessionService,
     private readonly config: ConfigService,
-    private readonly jwtService: JwtService,
   ) {}
 
   async validateUser(identifier: string, password: string): Promise<User> {
@@ -29,33 +30,29 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User, ip?: string, userAgent?: string): Promise<LoginResponseDto> {
+  async login(
+    user: User,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<LoginResponseDto> {
     try {
-      const userWithCompanies = await this.userRepository.findByIdWithCompanies(user.id);
-      
+      const userWithCompanies = await this.userRepository.findByIdWithCompanies(
+        user.id,
+      );
+
       if (!userWithCompanies) {
-        throw KnownExceptions.notFoundUser();
+        throw KnownExceptions.unauthorized();
       }
-  
+
       const { sessionId } = await this.sessionService.createSession(
         user.id,
         ip,
         userAgent,
         24,
       );
-      
-      const payload = {
-        sub: user.id,
-        sessionId: sessionId,
-        username: user.username,
-      };
-      
-      const access_token = this.jwtService.sign(payload, {
-        expiresIn: '24h',
-      });
-      
+
       return {
-        access_token,
+        session_token: sessionId,
         user: {
           id: userWithCompanies.id,
           username: userWithCompanies.username,
@@ -90,6 +87,17 @@ export class AuthService {
     });
   }
 
+  async validateSession(sessionToken: string): Promise<User> {
+    const session = await this.sessionService.getSessionById(sessionToken);
+    if (!session) {
+      throw KnownExceptions.unauthorized();
+    }
+
+    const user = await this.userRepository.findById(session.userId);
+
+    return user;
+  }
+
   async setEmail(userId: string, email: string): Promise<User> {
     if (await this.userRepository.findByEmail(email)) {
       throw new ConflictException('Email already in use');
@@ -97,12 +105,9 @@ export class AuthService {
     return this.userRepository.update(userId, { email });
   }
 
-  async logout(token: string): Promise<void> {
+  async logout(sessionToken: string): Promise<void> {
     try {
-      const payload = this.jwtService.verify(token);
-      if (payload.sessionId) {
-        await this.sessionService.deleteSession(payload.sessionId);
-      }
+      await this.sessionService.deleteSession(sessionToken);
     } catch (error) {
       console.log(error);
       throw error;

@@ -1,50 +1,21 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { LoginResponseDto } from '../../../application/dtos/login-response.dto';
 
 export function LoginDocs() {
   return applyDecorators(
-    ApiTags('Auth'),
     ApiOperation({
-      summary: 'Log in a user',
-      description:
-        'Authenticates the user with email and password, and returns a JWT access token.',
-    }),
-    ApiBody({
-      schema: {
-        type: 'object',
-        properties: {
-          email: {
-            type: 'string',
-            example: 'user@example.com',
-          },
-          password: {
-            type: 'string',
-            example: 'StrongPassword123!',
-          },
-        },
-        required: ['email', 'password'],
-      },
+      summary: 'User login',
+      description: 'Authenticates the user with username/email and password, and returns a session token.',
     }),
     ApiResponse({
       status: 200,
-      description: 'User logged in successfully.',
-      schema: {
-        example: {
-          access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        },
-      },
-    }),
-    ApiResponse({
-      status: 400,
-      description: 'Invalid request. Possibly missing or malformed fields.',
+      description: 'User successfully authenticated',
+      type: LoginResponseDto,
     }),
     ApiResponse({
       status: 401,
-      description: 'Unauthorized. Invalid email or password.',
-    }),
-    ApiResponse({
-      status: 500,
-      description: 'Internal server error.',
+      description: 'Invalid credentials',
     }),
   );
 }

@@ -1,5 +1,5 @@
 import { Body, Controller, Post, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CompanyService } from '../application/services/company.service';
 import { CreateCompanyAndLeaderDto } from '../application/dtos/create-company-and-leader.dto';
 import { CreateCompanyAndLeaderResponseDto } from '../application/dtos/create-company-and-leader-response.dto';
@@ -21,7 +21,6 @@ export class CompanyController {
 
   @Get(':id/information')
   @UseGuards(CompanyLeaderGuard)
-  @ApiBearerAuth()
   @ApiOperation({ 
     summary: 'Get company information',
     description: 'Retrieve detailed statistics and information about a company. Only accessible by the company leader.'
@@ -38,7 +37,7 @@ export class CompanyController {
   })
   @ApiResponse({ 
     status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication token'
+    description: 'Unauthorized - Invalid or missing session token'
   })
   @ApiResponse({ 
     status: 403, 

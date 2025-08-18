@@ -6,7 +6,10 @@ export function setupSwagger(app: INestApplication): void {
     .setTitle('nwscore API')
     .setDescription('API documentation for the nwscore API')
     .setVersion('0.1')
-    .addBearerAuth()
+    .addApiKey(
+      { type: 'apiKey', name: 'Authorization', in: 'header' },
+      'Session',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

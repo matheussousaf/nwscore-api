@@ -1,42 +1,30 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
 import { Request } from 'express';
 import { ISessionService, SESSION_SERVICE } from '../../application/interfaces/session.interface';
-import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class SessionAuthGuard implements CanActivate {
   constructor(
     @Inject(SESSION_SERVICE) private readonly sessionService: ISessionService,
-    private readonly jwtService: JwtService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const token = this.extractTokenFromHeader(request);
+    const sessionToken = this.extractSessionToken(request);
 
-    if (!token) {
-      throw new UnauthorizedException('No access token provided');
+    if (!sessionToken) {
+      throw new UnauthorizedException('No session token provided');
     }
 
     try {
-      // Verify JWT token
-      const payload = this.jwtService.verify(token);
-      
-      if (!payload.sessionId) {
-        throw new UnauthorizedException('Invalid token format');
-      }
-
-      // Validate session exists and is not expired
-      const session = await this.sessionService.getSessionById(payload.sessionId);
+      const session = await this.sessionService.getSessionById(sessionToken);
       if (!session) {
-        throw new UnauthorizedException('Session not found');
+        throw new UnauthorizedException('Session not found or expired');
       }
 
-      // Update session activity
-      await this.sessionService.updateSessionActivity(payload.sessionId);
+      await this.sessionService.updateSessionActivity(sessionToken);
 
-      // Attach user and session to request for use in controllers
-      request['user'] = { id: payload.sub };
+      request['user'] = { id: session.userId };
       request['session'] = session;
 
       return true;
@@ -44,12 +32,26 @@ export class SessionAuthGuard implements CanActivate {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException('Invalid or expired token');
+      throw new UnauthorizedException('Invalid or expired session');
     }
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+  private extractSessionToken(request: Request): string | undefined {
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Session ')) {
+      return authHeader.substring(8);
+    }
+
+    const sessionCookie = request.cookies?.sessionToken;
+    if (sessionCookie) {
+      return sessionCookie;
+    }
+
+    const queryToken = request.query.sessionToken as string;
+    if (queryToken) {
+      return queryToken;
+    }
+
+    return undefined;
   }
 }
